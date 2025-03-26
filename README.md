@@ -19,4 +19,7 @@ The application allows users to create a chat room, join a chat room, send messa
 <p><code>git clone https://github.com/dhruv060305/Multiuser-Chat-Application.git</code></p>
 <h2>1st Run the Server.java</h2>
 <p><code> javac Server.java </code><br> <code> java Server.java </code></p>
+<h2>2st Run the Client.java</h2>
+<p><code> javac Client.java </code><br> <code> java Client.java </code></p>
+
 
