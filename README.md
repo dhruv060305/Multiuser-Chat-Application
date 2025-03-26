@@ -12,3 +12,8 @@ The application allows users to create a chat room, join a chat room, send messa
 <li> USE "/name" TO CHANGE THE NAME </li>
 <li> USE "/quit" TO EXIT A CHAT ROOM </li>
 </ul>
+
+
+<h1>HOW TO USE</h1>
+<h2>Clone</h2>
+<p><code>git clone https://github.com/dhruv060305/Multiuser-Chat-Application.git</code></p>
