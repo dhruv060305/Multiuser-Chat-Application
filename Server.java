@@ -32,28 +32,32 @@ public class Server implements Runnable {
                 connections.add(handler);
                 pool.execute(handler);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
+            System.err.println("Server error: " + e.getMessage());
+        } finally {
             shutdown();
         }
     }
 
-    public void broadcast(String message) {
+    public synchronized void broadcast(String message, ConnectionHandler excludeUser) {
         for (ConnectionHandler ch : connections) {
-            ch.sendMessage(message);
+            if (ch != excludeUser) {
+                ch.sendMessage(message);
+            }
         }
     }
 
     public void shutdown() {
         done = true;
-        if (serverSocket != null && !serverSocket.isClosed()) {
-            try {
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
-                for (ConnectionHandler ch : connections) {
-                    ch.shutdown();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+            for (ConnectionHandler ch : connections) {
+                ch.shutdown();
+            }
+        } catch (IOException e) {
+            System.err.println("Error shutting down server: " + e.getMessage());
         }
         if (pool != null && !pool.isShutdown()) {
             pool.shutdown();
@@ -65,7 +69,7 @@ public class Server implements Runnable {
         private Socket client;
         private BufferedReader in;
         private PrintWriter out;
-        private String nickname;
+        private volatile String nickname;
 
         public ConnectionHandler(Socket client) {
             this.client = client;
@@ -79,36 +83,41 @@ public class Server implements Runnable {
                 out.println("Hello, welcome to the server!");
                 out.println("Enter Your Nickname:");
                 nickname = in.readLine();
+                
                 if (nickname == null || nickname.trim().isEmpty()) {
                     shutdown();
                     return;
                 }
                 nickname = nickname.trim();
                 out.println(nickname + " connected successfully!");
-                broadcast(nickname + " has joined the chat room");
+                broadcast(nickname + " has joined the chat room", this);
 
                 String message;
                 while ((message = in.readLine()) != null) {
                     if (message.startsWith("/name")) {
                         String newNickname = message.substring(6).trim();
                         if (!newNickname.isEmpty()) {
-                            broadcast(nickname + " changed their name to " + newNickname);
-                            System.out.println(nickname + " changed their name to " + newNickname);
-                            nickname = newNickname;
+                            synchronized (connections) {
+                                broadcast(nickname + " changed their name to " + newNickname, this);
+                                System.out.println(nickname + " changed their name to " + newNickname);
+                                nickname = newNickname;
+                            }
                             out.println("Nickname changed to " + nickname);
                         } else {
                             out.println("Invalid nickname. Please try again.");
                         }
                     } else if (message.equals("/quit")) {
-                        broadcast(nickname + " has left the chat room");
+                        broadcast(nickname + " has left the chat room", this);
                         System.out.println(nickname + " has left the chat room");
                         shutdown();
                         break;
                     } else {
-                        broadcast(nickname + ": " + message);
+                        broadcast(nickname + ": " + message, this);
                     }
                 }
             } catch (IOException e) {
+                System.err.println("Connection error: " + e.getMessage());
+            } finally {
                 shutdown();
             }
         }
@@ -124,8 +133,11 @@ public class Server implements Runnable {
                 if (in != null) in.close();
                 if (out != null) out.close();
                 if (client != null && !client.isClosed()) client.close();
+                synchronized (connections) {
+                    connections.remove(this);
+                }
             } catch (IOException e) {
-                // Ignore
+                System.err.println("Error closing connection: " + e.getMessage());
             }
         }
     }
